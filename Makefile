@@ -1,4 +1,4 @@
 
 all:
-	g++ Phase1.cpp -std=c++23 -o build/p1
-	./build/p1
+	g++ Phase2.cpp -std=c++23 -o build/p2
+	./build/p2
