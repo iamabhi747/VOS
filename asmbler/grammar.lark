@@ -1,0 +1,38 @@
+program: section+
+
+section: "." "bss" NEWLINE bss_section
+    | "." "data" NEWLINE data_section 
+    | "." "text" NEWLINE text_section
+
+bss_section: bss_statement*
+data_section: data_statement*
+text_section: text_block*
+
+bss_statement: NAME "resw" INT -> resw
+    | NAME "resb" -> resb
+
+data_statement: NAME "dw" (STRING | INT)+
+
+text_block: NAME ":" NEWLINE instruction*
+
+instruction: instruction_name (operand ("," operand)*)?
+
+instruction_name: "gd" -> gd | "pd" -> pd | "lr" -> lr | "sr" -> sr | "mov" -> mov | "cr" -> cr | "add" -> add | "sub" -> sub | "mul" -> mul | "div" -> div | "inc" -> inc | "dec" -> dec | "jmp" -> jmp | "bt" -> bt | "bc" -> bc | "and" -> and | "or" -> or | "not" -> not | "shl" -> shl | "shr" -> shr | "h" -> h
+operand: register -> reg
+    | "[" (register | NAME) "]" -> dereference
+    | "{" NAME "}" -> address
+    | NAME -> name
+    | (INT | STRING) -> const
+
+register: "R1" -> r1 | "R2" -> r2 | "CS" -> cs | "DS" -> ds
+
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
+INT: /\d+/
+STRING: /"([^"\\]|\\.)*"/
+COMMENT: /;.*/
+
+%import common.WS
+%import common.NEWLINE
+%ignore WS
+%ignore COMMENT
+
