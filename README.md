@@ -61,11 +61,13 @@ The virtual OS supports the following instructions:
 | `SR`            | Store register (store R1 content into memory).    |
 | `CR`            | Compare register (compare memory and R1 content). |
 | `BT`            | Branch if true (jump if condition flag is set).   |
+| `JT`            | Branch if true (uses R1 as segment register).     |
 | `AD`            | Add (R1 ← R1 + memory).                           |
 | `SB`            | Subtract (R1 ← R1 - memory).                      |
 | `ML`            | Multiply (R1 ← R1 * memory).                      |
 | `DV`            | Divide (R1 ← quotient, R2 ← remainder).           |
 | `BC`            | Branch on carry.                                  |
+| `JC`            | Branch on carry (uses R1 as segment register).    |
 | `AN`            | Logical AND.                                      |
 | `OR`            | Logical OR.                                       |
 | `NT`            | Logical NOT.                                      |

@@ -44,6 +44,7 @@ class OS {
         bool SR();
         bool CR();
         bool BT();
+        bool JT();
 
         // additional instruction set
         bool AD();
@@ -53,6 +54,7 @@ class OS {
         bool ML();
         bool DV();
         bool BC();
+        bool JC();
 
         bool AN();
         bool OR();
@@ -555,6 +557,17 @@ bool OS::BT()
     return true;
 }
 
+bool OS::JT()
+{
+    int address = fetchAddress(R2, false);
+    if (address == -1) return false; // Page Fault (Invalid)
+
+    if(C)
+    {
+        IC = address;
+    }
+    return true;
+}
 
 
 bool OS::AD()
@@ -723,6 +736,18 @@ bool OS::BC()
     if (CF)
     {
         int address = fetchAddress(CS);
+        if (address == -1) return false; // Page Fault (Invalid)
+
+        IC = address;
+    }
+    return true;
+}
+
+bool OS::JC()
+{
+    if (CF)
+    {
+        int address = fetchAddress(R1);
         if (address == -1) return false; // Page Fault (Invalid)
 
         IC = address;
