@@ -187,6 +187,30 @@ void OS::init(int pid, int ttl, int tll)
     TI = 0;
     PI = 0;
 
+    // PCB Structure
+    // 0: PID (Process Identifier)
+    // 1: TTL (Total Time Left)
+    // 2: TLL (Total Line Limit)
+    // 3: Process Mode/Status
+    // 4: Input File line number
+    // 5: Output File line number
+    // 6: Number of PTRs process using
+    // 7: PTRs entries list start address
+    // 8: saved CPU state address
+    // 9: <not-used>
+
+    // CPU State
+    // 0: IC
+    // 1: R1
+    // 2: R2
+    // 3: CS
+    // 4: DS
+    // 5: C
+    // 6: CF
+    // 7: <not-used>
+    // 8: <not-used>
+    // 9: <not-used>
+
     int PCBaddress = allocateMemoryFrame();
     fillBlockWithSpaces(&M[PCBaddress * 10]);
 
@@ -1015,6 +1039,7 @@ void OS::LOAD()
             }
             cout<<endl<< "[+] Exiting Program..." << endl;
             x=0;
+            state = 0;
         }
         else
         {
