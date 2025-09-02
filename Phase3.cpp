@@ -5,6 +5,7 @@
 #include <string>
 #include <random>
 #include <set>
+#include <sstream>
 using namespace std;
 
 #define MEMS 99995
@@ -39,6 +40,10 @@ class OS {
         set<int> allocatedAddresses; 
         int lastAllocated = 0; // Debug
 
+        vector<string> inLines;
+        vector<string> outLines;
+        int curInLineIdx = 0, curOutLineIdx = 0, nextOutLineIdx = 0;
+
         bool GD();
         bool PD();
         bool H();
@@ -68,6 +73,7 @@ class OS {
         int resolveValidPageFault(int segmentR = DS, bool skipIR = false, int psudoAddress = 0);
         int fetchAddress(int segmentR = DS, bool enableSegment = true);
         void freeMemoryFrame(int address);
+        void flushOutput();
         
     public:
         void init(int pid, int ttl, int tll);
@@ -221,12 +227,18 @@ void OS::init(int pid, int ttl, int tll)
     int CPUstateaddress = allocateMemoryFrame();
     fillBlockWithSpaces(&M[CPUstateaddress * 10]);
 
+    curOutLineIdx = nextOutLineIdx;
+    nextOutLineIdx = curOutLineIdx + tll + 2;
+    outLines.resize(outLines.size() + tll + 2);
+    outLines[curOutLineIdx] = "Program Output : PID=" + std::to_string(pid);
+    curOutLineIdx++;
+
     writeIntToWord(pid, M[PCBaddress * 10 + 0]);  // PID
     writeIntToWord(ttl, M[PCBaddress * 10 + 1]);  // TTL
     writeIntToWord(tll, M[PCBaddress * 10 + 2]);  // TLL
     writeIntToWord(0,   M[PCBaddress * 10 + 3]);  // Status
-    //
-    //
+    writeIntToWord(curInLineIdx , M[PCBaddress * 10 + 4]); // InLineIdx
+    writeIntToWord(curOutLineIdx, M[PCBaddress * 10 + 5]); // OutLineIdx
     writeIntToWord(1,   M[PCBaddress * 10 + 6]);  // PTRS length
     writeIntToWord(PTRSaddress, M[PCBaddress * 10 + 7]); // PTRSaddress
     writeIntToWord(CPUstateaddress, M[PCBaddress * 10 + 8]); // CPU State address
@@ -413,6 +425,15 @@ void OS::freeMemoryFrame(int frame)
     allocatedAddresses.erase(it);
 }
 
+void OS::flushOutput()
+{
+    outfile.seekp(0, std::ios::beg);
+    for (const auto& line : outLines)
+    {
+        outfile << line << '\n';
+    }
+}
+
 // MOS
 bool OS::MOS()
 {
@@ -488,11 +509,10 @@ bool OS::GD()
     if (address == -1) return false; // Page Fault (Invalid)
 
     for(int i=0; i < 40; i++) buffer[i] = ' ';
-    infile.getline(buffer, 40);
-    for(int i=0; i < 40; i++)
-    {
-        if (buffer[i] == '\n' || buffer[i] == '\0') buffer[i] = ' ';
-    }
+
+    int lineSize = min((int)inLines[curInLineIdx].size(), 40);
+    ranges::copy(inLines[curInLineIdx].begin(), inLines[curInLineIdx].begin() + lineSize, buffer);
+    curInLineIdx++;
 
     if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D')
     {
@@ -517,14 +537,24 @@ bool OS::PD()
     int address = fetchAddress();
     if (address == -1) return false; // Page Fault (Invalid)
 
+    stringstream out;
+
     for(int i = address; i < address+10; i++)
     {
         for(int j = 0; j<4; j++)
         {
-            outfile << M[i][j];
+            out << M[i][j];
         }
     }
-    outfile << endl;
+    
+    if (curOutLineIdx >= outLines.size())
+    {
+        cout << "[-] Out of lines!!" << endl;
+        return false;
+    }
+    outLines[curOutLineIdx] = out.str();
+    curOutLineIdx++;
+
     return true;
 }
 
@@ -575,6 +605,8 @@ bool OS::H()
     freeMemoryFrame(PCBaddress);
 
     cout << "[+] Freeed Associated memory" << endl;
+
+    flushOutput();
 
     return false;
 }
@@ -1030,6 +1062,14 @@ void OS::Execute()
 void OS::LOAD()
 {
     cout<<"[+] Reading Data..."<<endl;
+
+    string currentLine;
+    inLines.clear();
+    while (std::getline(infile, currentLine))
+    {
+        inLines.push_back(currentLine);
+    }
+
     int x=0;
     int prvS=0;
     do
@@ -1037,13 +1077,11 @@ void OS::LOAD()
         //clear buffer
         for (int i=0; i < 41; i++) buffer[i]=' ';
 
-        infile.getline(buffer, 41);
-        for (int i=0; i < 40; i++)
-        {
-            if (buffer[i] == '\n' || buffer[i] == '\0') buffer[i] = ' ';
-        }
+        int lineSize = min((int)inLines[curInLineIdx].size(), 40);
+        ranges::copy(inLines[curInLineIdx].begin(), inLines[curInLineIdx].begin() + lineSize, buffer);
+        curInLineIdx++;
 
-        for (int k=0;k<41;k++)
+        for (int k=0;k<40;k++)
            cout<<buffer[k];
         
         if (buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J')
@@ -1128,12 +1166,13 @@ void OS::LOAD()
             if ((int)(x / 100) != prvS)
             {
                 writeIntToWord(readIntFromWord(M[CS]) + 1, M[CS]);
+                writeIntToWord(readIntFromWord(M[DS]) + 1, M[DS]);
                 prvS += 1;
             }
              
         }
 
-    } while(!infile.eof());         //continues to take input till eof
+    } while(curInLineIdx < inLines.size());         //continues to take input till eof
         
     
 }
