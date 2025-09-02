@@ -4,6 +4,7 @@
 #include <format>
 #include <string>
 #include <random>
+#include <set>
 using namespace std;
 
 #define MEMS 99995
@@ -35,7 +36,8 @@ class OS {
         mt19937 rgen;
         uniform_int_distribution<int> rrange;
 
-        vector<int> allocatedAddresses; 
+        set<int> allocatedAddresses; 
+        int lastAllocated = 0; // Debug
 
         bool GD();
         bool PD();
@@ -65,6 +67,7 @@ class OS {
         int allocateMemoryFrame();
         int resolveValidPageFault(int segmentR = DS, bool skipIR = false, int psudoAddress = 0);
         int fetchAddress(int segmentR = DS, bool enableSegment = true);
+        void freeMemoryFrame(int address);
         
     public:
         void init(int pid, int ttl, int tll);
@@ -79,7 +82,7 @@ class OS {
         void MEMDump(string filename);
 
         OS() : rgen(random_device{}()), rrange(0, (int)((MEMS - REGS) / 10)) {
-            //
+            for (int i = 0; i < MEMS; i++) memset(M[i], ' ', 4);
         }
 };
 
@@ -150,7 +153,7 @@ void OS::MEMDump(string filename)
         dumpfile << "R" << i+1 << ": ";
         for (int j = 0; j < 4; j++)
         {
-            dumpfile << M[MEMS+i][j];
+            dumpfile << M[MEMS-REGS+i][j];
         }
         dumpfile << endl;
     }
@@ -163,25 +166,19 @@ void OS::init(int pid, int ttl, int tll)
 {
     cout<<endl<< "[+] Initialise Program..." <<endl;
 
-    for(int i = 0; i < MEMS; i++)
-    {    
-        for(int j = 0; j < 4; j++ )
-        {  
-            M[i][j] = ' ';
-        }
-        
-    }
-   
     for (int i = 0; i < 4; i++)
     {
         IR[i]    = '*';
         M[CS][i]   = '0';
         M[DS][i]   = '0';
+        M[R1][i]   = ' ';
+        M[R2][i]   = ' ';
     };
     M[DS][3] = '1';
 
     C  = false;
     CF = false;
+    IC = 0;
 
     SI = 0;
     TI = 0;
@@ -215,6 +212,7 @@ void OS::init(int pid, int ttl, int tll)
     fillBlockWithSpaces(&M[PCBaddress * 10]);
 
     int PTRSaddress = allocateMemoryFrame();
+    fillBlockWithSpaces(&M[PTRSaddress * 10]);
 
     int PTRaddress = allocateMemoryFrame();
     fillBlockWithSpaces(&M[PTRaddress * 10]);
@@ -234,17 +232,31 @@ void OS::init(int pid, int ttl, int tll)
     writeIntToWord(CPUstateaddress, M[PCBaddress * 10 + 8]); // CPU State address
 
     writeIntToWord(PCBaddress, PCB);
-    IC = 0;
+
+    MEMDump("backups/memdump_" + std::to_string(pid) + ".txt");
 }
 
 int OS::allocateMemoryFrame()
 {
-    int frame = rrange(rgen);
-    while (std::find(allocatedAddresses.begin(), allocatedAddresses.end(), frame) != allocatedAddresses.end())
+    // for (int i = 0 ; i < (MEMS - REGS) / 10; i++) // Debug
+    // {
+    //     if (!allocatedAddresses.contains(i))
+    //     {
+    //         allocatedAddresses.insert(i);
+    //         fillBlockWithSpaces(&M[i * 10]);
+    //         return i;
+    //     }
+    // }
+
+    // int frame = rrange(rgen);
+    int frame = lastAllocated; // Debug
+    while (allocatedAddresses.contains(frame))
     {
-        frame = rrange(rgen);
+        // frame = rrange(rgen);
+        frame = ++lastAllocated;
     }
-    allocatedAddresses.push_back(frame);
+    allocatedAddresses.insert(frame);
+    fillBlockWithSpaces(&M[frame * 10]);
     return frame;
 }
 
@@ -393,6 +405,14 @@ int OS::fetchAddress(int segmentR, bool enableSegment)
     return FrameAddress * 10 + (address % 10);
 }
 
+void OS::freeMemoryFrame(int frame)
+{
+    auto it = allocatedAddresses.find(frame);
+    if (it == allocatedAddresses.end()) return;
+
+    allocatedAddresses.erase(it);
+}
+
 // MOS
 bool OS::MOS()
 {
@@ -512,6 +532,50 @@ bool OS::H()
 {
     cout << "[+] Halting Program..." << endl;
     outfile << endl;
+
+    // Free program's memory
+    int PCBaddress = readIntFromWord(PCB);
+
+    int PTRSlength = readIntFromWord(M[PCBaddress * 10 + 6]);
+    int PTRSaddress = readIntFromWord(M[PCBaddress * 10 + 7]);
+
+    for (int i = 0; i < PTRSlength; i++)
+    {
+        int PTRaddress = readIntFromWord(M[PTRSaddress * 10 + (i % 9)]);
+
+        for (int j = 0; j < 10; j++)
+        {
+            int frame = readIntFromWord(M[PTRaddress * 10 + j]);
+            if (frame < 0 || frame * 10 > MEMS - REGS)
+            {
+                break;
+            }
+
+            freeMemoryFrame(frame);
+        }
+
+        freeMemoryFrame(PTRaddress);
+
+        if (i % 9 == 8)
+        {
+            int nPTRSaddress = readIntFromWord(M[PTRSaddress * 10 + 9]);
+            if (nPTRSaddress < 0 || nPTRSaddress * 10 > MEMS - REGS)
+            {
+                break;
+            }
+
+            freeMemoryFrame(PTRSaddress);
+            PTRSaddress = nPTRSaddress;
+
+        }
+    }
+
+    freeMemoryFrame(PTRSaddress);
+    freeMemoryFrame(readIntFromWord(M[PCBaddress * 10 + 8]));
+    freeMemoryFrame(PCBaddress);
+
+    cout << "[+] Freeed Associated memory" << endl;
+
     return false;
 }
 

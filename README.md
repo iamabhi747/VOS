@@ -51,8 +51,9 @@ TODOS for Phase 3:
     - if state is 0 skip pass everything else except $AMJ
     - $DTA will not invoke Execute, it will put job in the ready queue
     - $END will be handled gracefully
-    - fix init, stop clearing all memory
+    - fix init, stop clearing all memory [done]
     - fix value of DS in init, it should be +1 that max(CS) for that program, insted of setting 1 by default.
+    - a way to free allocated memory after HALT [done]
 - PCB
     - add way to store infile & outfile SEEK location in PCB
     - add way to store complete CPU state in the PCB
