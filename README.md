@@ -57,7 +57,7 @@ TODOS for Phase 3:
     - add way to store infile & outfile SEEK location in PCB
     - add way to store complete CPU state in the PCB
     - support for context switching
-    - fix unbalanced sizes (fist page has 5 ptrs, next will have 9)
+    - fix unbalanced sizes (fist page has 5 ptrs, next will have 9) [done]
 - Execution
     - Add another conditions to break execution loop, according to schedular
     - Schedular will call execute after context switching next candidate

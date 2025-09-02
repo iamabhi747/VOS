@@ -191,7 +191,7 @@ void OS::init(int pid, int ttl, int tll)
     // 0: PID (Process Identifier)
     // 1: TTL (Total Time Left)
     // 2: TLL (Total Line Limit)
-    // 3: Process Mode/Status
+    // 3: Process Mode/Status (0 = Ready, 1 = Wait, 2 = exited)
     // 4: Input File line number
     // 5: Output File line number
     // 6: Number of PTRs process using
@@ -214,15 +214,24 @@ void OS::init(int pid, int ttl, int tll)
     int PCBaddress = allocateMemoryFrame();
     fillBlockWithSpaces(&M[PCBaddress * 10]);
 
-    writeIntToWord(pid, M[PCBaddress * 10 + 0]);  // PID
-    writeIntToWord(ttl, M[PCBaddress * 10 + 1]);  // TTL
-    writeIntToWord(tll, M[PCBaddress * 10 + 2]);  // TLL
+    int PTRSaddress = allocateMemoryFrame();
 
     int PTRaddress = allocateMemoryFrame();
     fillBlockWithSpaces(&M[PTRaddress * 10]);
+    writeIntToWord(PTRaddress, M[PTRSaddress * 10 + 0]);
 
-    writeIntToWord(1, M[PCBaddress * 10 + 3]);   // PTRS length
-    writeIntToWord(PTRaddress, M[PCBaddress * 10 + 4]); // 0th PTRaddress
+    int CPUstateaddress = allocateMemoryFrame();
+    fillBlockWithSpaces(&M[CPUstateaddress * 10]);
+
+    writeIntToWord(pid, M[PCBaddress * 10 + 0]);  // PID
+    writeIntToWord(ttl, M[PCBaddress * 10 + 1]);  // TTL
+    writeIntToWord(tll, M[PCBaddress * 10 + 2]);  // TLL
+    writeIntToWord(0,   M[PCBaddress * 10 + 3]);  // Status
+    //
+    //
+    writeIntToWord(1,   M[PCBaddress * 10 + 6]);  // PTRS length
+    writeIntToWord(PTRSaddress, M[PCBaddress * 10 + 7]); // PTRSaddress
+    writeIntToWord(CPUstateaddress, M[PCBaddress * 10 + 8]); // CPU State address
 
     writeIntToWord(PCBaddress, PCB);
     IC = 0;
@@ -255,7 +264,7 @@ int OS::resolveValidPageFault(int segmentR, bool skipIR, int psudoAddress)
 
     int PTRSindex = readIntFromWord(M[segmentR]);
     int PCBaddress = readIntFromWord(PCB);
-    int PTRSlength = readIntFromWord(M[PCBaddress * 10 + 3]);
+    int PTRSlength = readIntFromWord(M[PCBaddress * 10 + 6]);
 
     // cout << "[*] PTRSindex: " << PTRSindex << endl; // for debugging
 
@@ -266,64 +275,51 @@ int OS::resolveValidPageFault(int segmentR, bool skipIR, int psudoAddress)
     }
     else if (PTRSindex == PTRSlength)
     {
-        int PTRSaddress = PCBaddress * 10 + 4;
+        int PTRSaddress = readIntFromWord(M[PCBaddress * 10 + 7]);
         int nPTRSaddress;
-        if (PTRSindex > 4)
-        {
-            nPTRSaddress = readIntFromWord(M[PTRSaddress + 5]) * 10;
-            if (nPTRSaddress < 0 || nPTRSaddress > MEMS - REGS)
-            {
-                int newFrame = allocateMemoryFrame();
-                writeIntToWord(newFrame, M[PTRSaddress + 5]);
-            }
-            PTRSaddress = readIntFromWord(M[PTRSaddress + 5]) * 10;
-            PTRSindex -= 5;
-        }
         while (PTRSindex > 8)
         {
-            nPTRSaddress = readIntFromWord(M[PTRSaddress + 9]) * 10;
-            if (nPTRSaddress < 0 || nPTRSaddress > MEMS - REGS)
+            nPTRSaddress = readIntFromWord(M[PTRSaddress * 10 + 9]);
+            if (nPTRSaddress < 0 || nPTRSaddress * 10 > MEMS - REGS)
             {
                 int newFrame = allocateMemoryFrame();
-                writeIntToWord(newFrame, M[PTRSaddress + 9]);
+                writeIntToWord(newFrame, M[PTRSaddress * 10 + 9]);
+                fillBlockWithSpaces(&M[newFrame * 10]);
             }
-            PTRSaddress = readIntFromWord(M[PTRSaddress + 9]) * 10;
+            PTRSaddress = readIntFromWord(M[PTRSaddress * 10 + 9]);
             PTRSindex -= 9;
         }
 
-        int PTRaddress = readIntFromWord(M[PTRSaddress + PTRSindex]) * 10;
-        if (PTRaddress < 0 || PTRaddress > MEMS - REGS)
+        int PTRaddress = readIntFromWord(M[PTRSaddress * 10 + PTRSindex]);
+        if (PTRaddress < 0 || PTRaddress * 10 > MEMS - REGS)
         {
             int newFrame = allocateMemoryFrame();
-            writeIntToWord(newFrame, M[PTRSaddress + PTRSindex]);
+            writeIntToWord(newFrame, M[PTRSaddress * 10 + PTRSindex]);
+            fillBlockWithSpaces(&M[newFrame * 10]);
 
-            writeIntToWord(PTRSlength + 1, M[PCBaddress * 10 + 3]);
+            writeIntToWord(PTRSlength + 1, M[PCBaddress * 10 + 6]);
         }
     }
 
-    int PTRSaddress = PCBaddress * 10 + 4;
-    if (PTRSindex > 4)
-    {
-        PTRSaddress = readIntFromWord(M[PTRSaddress + 5]) * 10;
-        PTRSindex -= 5;
-    }
+    int PTRSaddress = readIntFromWord(M[PCBaddress * 10 + 7]);
     while (PTRSindex > 8)
     {
-        PTRSaddress = readIntFromWord(M[PTRSaddress + 9]) * 10;
+        PTRSaddress = readIntFromWord(M[PTRSaddress * 10 + 9]);
         PTRSindex -= 9;
     }
 
-    int PTRaddress = readIntFromWord(M[PTRSaddress + PTRSindex]) * 10;
+    int PTRaddress = readIntFromWord(M[PTRSaddress * 10 + PTRSindex]);
 
     // cout << "[*] Meta: " << segmentR << " : " << PCBaddress << " : " << PTRSlength << " : " << PTRSaddress << " : " << PTRSindex << " : " << M[segmentR][0]<<M[segmentR][1]<<M[segmentR][2]<<M[segmentR][3]  << endl; // for debugging
 
-    int FrameAddress = readIntFromWord(M[PTRaddress + (int)(address / 10)]);
-    if (FrameAddress < 0 || FrameAddress > MEMS - REGS)
+    int FrameAddress = readIntFromWord(M[PTRaddress * 10 + (int)(address / 10)]);
+    if (FrameAddress < 0 || FrameAddress * 10 > MEMS - REGS)
     {
         int newFrame = allocateMemoryFrame();
-        writeIntToWord(newFrame, M[PTRaddress + (int)(address / 10)]);
+        writeIntToWord(newFrame, M[PTRaddress * 10 + (int)(address / 10)]);
+        fillBlockWithSpaces(&M[newFrame * 10]);
     }
-    FrameAddress = readIntFromWord(M[PTRaddress + (int)(address / 10)]);
+    FrameAddress = readIntFromWord(M[PTRaddress * 10 + (int)(address / 10)]);
 
     return FrameAddress * 10 + (address % 10);
 }
@@ -354,7 +350,7 @@ int OS::fetchAddress(int segmentR, bool enableSegment)
 
     int PTRSindex = readIntFromWord(M[segmentR]);
     int PCBaddress = readIntFromWord(PCB);
-    int PTRSlength = readIntFromWord(M[PCBaddress * 10 + 3]);
+    int PTRSlength = readIntFromWord(M[PCBaddress * 10 + 6]);
 
     // cout << "[*] Meta: " << PCBaddress << " : " << PTRSlength << " : " << PTRSindex << " : " << M[segmentR][0]<<M[segmentR][1]<<M[segmentR][2]<<M[segmentR][3]  << endl; // for debugging
 
@@ -371,21 +367,16 @@ int OS::fetchAddress(int segmentR, bool enableSegment)
         }
     }
 
-    int PTRSaddress = PCBaddress * 10 + 4;
-    if (PTRSindex > 4)
-    {
-        PTRSaddress = readIntFromWord(M[PTRSaddress + 5]) * 10;
-        PTRSindex -= 5;
-    }
+    int PTRSaddress = readIntFromWord(M[PCBaddress * 10 + 7]);
     while (PTRSindex > 8)
     {
-        PTRSaddress = readIntFromWord(M[PTRSaddress + 9]) * 10;
+        PTRSaddress = readIntFromWord(M[PTRSaddress * 10 + 9]);
         PTRSindex -= 9;
     }
 
-    int PTRaddress = readIntFromWord(M[PTRSaddress + PTRSindex]) * 10;
+    int PTRaddress = readIntFromWord(M[PTRSaddress * 10 + PTRSindex]);
 
-    int FrameAddress = readIntFromWord(M[PTRaddress + (int)(address / 10)]);
+    int FrameAddress = readIntFromWord(M[PTRaddress * 10 + (int)(address / 10)]);
     if (FrameAddress < 0 || FrameAddress > MEMS - REGS)
     {
         PI = 3;
