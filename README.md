@@ -46,6 +46,29 @@ The virtual OS simulates an old-style batch operating system that processes jobs
 - Focuses on enabling multiprogramming.
 - Will introduce scheduling and resource management.
 
+TODOS for Phase 3:
+- Fix loader to handle multiple jobs.
+    - if state is 0 skip pass everything else except $AMJ
+    - $DTA will not invoke Execute, it will put job in the ready queue
+    - $END will be handled gracefully
+    - fix init, stop clearing all memory
+    - fix value of DS in init, it should be +1 that max(CS) for that program, insted of setting 1 by default.
+- PCB
+    - add way to store infile & outfile SEEK location in PCB
+    - add way to store complete CPU state in the PCB
+    - support for context switching
+    - fix unbalanced sizes (fist page has 5 ptrs, next will have 9)
+- Execution
+    - Add another conditions to break execution loop, according to schedular
+    - Schedular will call execute after context switching next candidate
+    - fix resolving addess from CS & IC, it should be fetchAddress instded for resolving page fault, it should be invalid page fault
+- Extra (Next Phase)
+    - complete asambler & linker
+    - add logging
+    - upgrade MemDump
+    - refactor code
+    - build compiler
+
 ---
 
 ## Instruction Set
