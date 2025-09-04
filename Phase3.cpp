@@ -446,10 +446,10 @@ void OS::saveCPUstate()
     int CPUstateaddress = readIntFromWord(M[PCBaddress * 10 + 8]);
 
     writeIntToWord(IC, M[CPUstateaddress * 10 + 0]); // IC
-    writeIntToWord(R1, M[CPUstateaddress * 10 + 1]); // R1
-    writeIntToWord(R2, M[CPUstateaddress * 10 + 2]); // R2
-    writeIntToWord(CS, M[CPUstateaddress * 10 + 3]); // CS
-    writeIntToWord(DS, M[CPUstateaddress * 10 + 4]); // DS
+    memcpy(M[CPUstateaddress * 10 + 1], M[R1], 4); // R1
+    memcpy(M[CPUstateaddress * 10 + 2], M[R2], 4); // R2
+    writeIntToWord(readIntFromWord(M[CS]), M[CPUstateaddress * 10 + 3]); // CS
+    writeIntToWord(readIntFromWord(M[DS]), M[CPUstateaddress * 10 + 4]); // DS
     writeIntToWord(C , M[CPUstateaddress * 10 + 5]); // C
     writeIntToWord(CF, M[CPUstateaddress * 10 + 6]); // CF
 }
@@ -462,8 +462,8 @@ void OS::contextSwitch(int nPCBaddress)
     int CPUstateaddress = readIntFromWord(M[nPCBaddress * 10 + 8]);
 
     IC = readIntFromWord(M[CPUstateaddress * 10 + 0]);
-    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 1]), M[R1]);
-    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 2]), M[R2]);
+    memcpy(M[R1], M[CPUstateaddress * 10 + 1], 4); // R1
+    memcpy(M[R2], M[CPUstateaddress * 10 + 2], 4); // R2
     writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 3]), M[CS]);
     writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 4]), M[DS]);
     C = readIntFromWord(M[CPUstateaddress * 10 + 5]) == 1; 
