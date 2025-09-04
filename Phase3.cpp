@@ -83,7 +83,8 @@ class OS {
         void init(int pid, int ttl, int tll);
         void LOAD();
         bool MOS();
-        void Execute();
+        void Execute(int premption = 5);
+        void Schedule(int premption = 5);
         void flushOutput();
         
         fstream infile;
@@ -452,6 +453,9 @@ void OS::saveCPUstate()
     writeIntToWord(readIntFromWord(M[DS]), M[CPUstateaddress * 10 + 4]); // DS
     writeIntToWord(C , M[CPUstateaddress * 10 + 5]); // C
     writeIntToWord(CF, M[CPUstateaddress * 10 + 6]); // CF
+
+    writeIntToWord(curInLineIdx , M[PCBaddress * 10 + 4]);
+    writeIntToWord(curOutLineIdx, M[PCBaddress * 10 + 5]);
 }
 
 void OS::contextSwitch(int nPCBaddress)
@@ -645,7 +649,9 @@ bool OS::H()
 
     freeMemoryFrame(PTRSaddress);
     freeMemoryFrame(readIntFromWord(M[PCBaddress * 10 + 8]));
-    freeMemoryFrame(PCBaddress);
+    // freeMemoryFrame(PCBaddress); scheduler will free this
+
+    writeIntToWord(2, M[PCBaddress * 10 + 3]); // Status = exit
 
     cout << "[+] Freeed Associated memory" << endl;
 
@@ -983,12 +989,14 @@ bool OS::LS()
 
 
 // Execution
-void OS::Execute()
+void OS::Execute(int premption)
 {
     cout<<endl<<"[+] Executing Program..."<<endl;
-    MEMDump("backups/memory_dump_before.txt");
+    // MEMDump("backups/memory_dump_before.txt");
 
-    while (1)
+    int currExecutingTime = 0;
+
+    while (currExecutingTime < premption)
     {
         int PCBaddress = readIntFromWord(PCB);
         int ttc = readIntFromWord(M[PCBaddress * 10 + 1]);
@@ -1005,9 +1013,10 @@ void OS::Execute()
         {
             IR[i] = M[address][i];
         }
-        // cout << IC << " " << IR[0] << IR[1] << IR[2] << IR[3] << "  " << address << endl; // for debugging
+        cout << IC << " " << IR[0] << IR[1] << IR[2] << IR[3] << "  " << address << endl; // for debugging
         IC++;
         IC = IC % 100;
+        currExecutingTime++;
 
         if (IR[0] == 'G' && IR[1] == 'D')
         {
@@ -1098,7 +1107,7 @@ void OS::Execute()
         // cout << "======================================" << endl;
     }
 
-    MEMDump("backups/memory_dump_after.txt");
+    // MEMDump("backups/memory_dump_after.txt");
 }
 
 // Load Function
@@ -1167,6 +1176,7 @@ void OS::LOAD()
                 continue;
             }
             state = 2;
+            saveCPUstate();
         }
         else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D')
         {
@@ -1237,6 +1247,34 @@ void OS::LOAD()
     
 }
 
+// Schedular (round-robin with premption)
+void OS::Schedule(int premption)
+{
+    int uniqueid = 0;
+    while (!readyQ.empty())
+    {
+        int cPCBaddress = readIntFromWord(PCB);
+        int nPCBaddress = readyQ.front();
+        readyQ.pop();
+
+        if (cPCBaddress != nPCBaddress) contextSwitch(nPCBaddress);
+
+        Execute(premption);
+
+        // MEMDump("backups/execution_" + to_string(uniqueid) + ".txt");
+        uniqueid++;
+
+        int status = readIntFromWord(M[nPCBaddress * 10 + 3]);
+        if (status == 2) // Exited
+        {
+            freeMemoryFrame(nPCBaddress);
+            continue;
+        }
+
+        readyQ.push(nPCBaddress);
+    }
+}
+
 int main()
 { 
     OS os;
@@ -1250,6 +1288,9 @@ int main()
     }
       
     os.LOAD();
+    os.flushOutput();
+
+    os.Schedule(10);
     os.flushOutput();
 
     return 0;

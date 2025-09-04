@@ -60,8 +60,8 @@ TODOS for Phase 3:
     - support for context switching [done]
     - fix unbalanced sizes (fist page has 5 ptrs, next will have 9) [done]
 - Execution
-    - Add another conditions to break execution loop, according to schedular
-    - Schedular will call execute after context switching next candidate
+    - Add another conditions to break execution loop, according to schedular [done]
+    - Schedular will call execute after context switching next candidate [done]
     - fix resolving addess from CS & IC, it should be fetchAddress instded for resolving page fault, it should be invalid page fault
 - Extra (Next Phase)
     - complete asambler & linker
