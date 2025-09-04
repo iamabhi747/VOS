@@ -74,6 +74,8 @@ class OS {
         int fetchAddress(int segmentR = DS, bool enableSegment = true);
         void freeMemoryFrame(int address);
         void flushOutput();
+        void saveCPUstate();
+        void contextSwitch(int nPCBaddress);
         
     public:
         void init(int pid, int ttl, int tll);
@@ -244,6 +246,7 @@ void OS::init(int pid, int ttl, int tll)
     writeIntToWord(CPUstateaddress, M[PCBaddress * 10 + 8]); // CPU State address
 
     writeIntToWord(PCBaddress, PCB);
+    saveCPUstate();
 
     MEMDump("backups/memdump_" + std::to_string(pid) + ".txt");
 }
@@ -432,6 +435,43 @@ void OS::flushOutput()
     {
         outfile << line << '\n';
     }
+}
+
+void OS::saveCPUstate()
+{
+    int PCBaddress = readIntFromWord(PCB);
+    int CPUstateaddress = readIntFromWord(M[PCBaddress * 10 + 8]);
+
+    writeIntToWord(IC, M[CPUstateaddress * 10 + 0]); // IC
+    writeIntToWord(R1, M[CPUstateaddress * 10 + 1]); // R1
+    writeIntToWord(R2, M[CPUstateaddress * 10 + 2]); // R2
+    writeIntToWord(CS, M[CPUstateaddress * 10 + 3]); // CS
+    writeIntToWord(DS, M[CPUstateaddress * 10 + 4]); // DS
+    writeIntToWord(C , M[CPUstateaddress * 10 + 5]); // C
+    writeIntToWord(CF, M[CPUstateaddress * 10 + 6]); // CF
+}
+
+void OS::contextSwitch(int nPCBaddress)
+{
+    saveCPUstate();
+    writeIntToWord(nPCBaddress, PCB);
+
+    int CPUstateaddress = readIntFromWord(M[nPCBaddress * 10 + 8]);
+
+    IC = readIntFromWord(M[CPUstateaddress * 10 + 0]);
+    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 1]), M[R1]);
+    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 2]), M[R2]);
+    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 3]), M[CS]);
+    writeIntToWord(readIntFromWord(M[CPUstateaddress * 10 + 4]), M[DS]);
+    C = readIntFromWord(M[CPUstateaddress * 10 + 5]) == 1; 
+    CF = readIntFromWord(M[CPUstateaddress * 10 + 6]) == 1;
+
+    SI = 0;
+    PI = 0;
+    TI = 0;
+
+    curInLineIdx  = readIntFromWord(M[nPCBaddress * 10 + 4]);
+    curOutLineIdx = readIntFromWord(M[nPCBaddress * 10 + 5]);
 }
 
 // MOS

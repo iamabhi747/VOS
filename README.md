@@ -56,8 +56,8 @@ TODOS for Phase 3:
     - a way to free allocated memory after HALT [done]
 - PCB
     - add way to store infile & outfile SEEK location in PCB [done]
-    - add way to store complete CPU state in the PCB
-    - support for context switching
+    - add way to store complete CPU state in the PCB [done]
+    - support for context switching [done]
     - fix unbalanced sizes (fist page has 5 ptrs, next will have 9) [done]
 - Execution
     - Add another conditions to break execution loop, according to schedular
