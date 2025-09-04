@@ -48,9 +48,9 @@ The virtual OS simulates an old-style batch operating system that processes jobs
 
 TODOS for Phase 3:
 - Fix loader to handle multiple jobs.
-    - if state is 0 skip pass everything else except $AMJ
-    - $DTA will not invoke Execute, it will put job in the ready queue
-    - $END will be handled gracefully
+    - if state is 0 skip pass everything else except $AMJ [done]
+    - $DTA will not invoke Execute, it will put job in the ready queue [done]
+    - $END will be handled gracefully [done]
     - fix init, stop clearing all memory [done]
     - fix value of DS in init, it should be +1 that max(CS) for that program, insted of setting 1 by default. [done]
     - a way to free allocated memory after HALT [done]

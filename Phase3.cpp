@@ -6,6 +6,7 @@
 #include <random>
 #include <set>
 #include <sstream>
+#include <queue>
 using namespace std;
 
 #define MEMS 99995
@@ -44,6 +45,8 @@ class OS {
         vector<string> outLines;
         int curInLineIdx = 0, curOutLineIdx = 0, nextOutLineIdx = 0;
 
+        queue<int> readyQ;
+
         bool GD();
         bool PD();
         bool H();
@@ -73,7 +76,6 @@ class OS {
         int resolveValidPageFault(int segmentR = DS, bool skipIR = false, int psudoAddress = 0);
         int fetchAddress(int segmentR = DS, bool enableSegment = true);
         void freeMemoryFrame(int address);
-        void flushOutput();
         void saveCPUstate();
         void contextSwitch(int nPCBaddress);
         
@@ -82,6 +84,7 @@ class OS {
         void LOAD();
         bool MOS();
         void Execute();
+        void flushOutput();
         
         fstream infile;
         fstream outfile;
@@ -172,7 +175,7 @@ void OS::MEMDump(string filename)
 //initiallise everything to ' '
 void OS::init(int pid, int ttl, int tll)
 {
-    cout<<endl<< "[+] Initialise Program..." <<endl;
+    cout<< "[+] Initialise Program..." <<endl;
 
     for (int i = 0; i < 4; i++)
     {
@@ -1123,6 +1126,7 @@ void OS::LOAD()
 
         for (int k=0;k<40;k++)
            cout<<buffer[k];
+        cout << endl;
         
         if (buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J')
         {
@@ -1150,6 +1154,11 @@ void OS::LOAD()
             init(pid, ttl, tll);
             state = 1;
         }
+        else if (state == 0)
+        {
+            // Random card!!
+            continue;
+        }
         else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A')
         {
             if (state != 1)
@@ -1158,10 +1167,6 @@ void OS::LOAD()
                 continue;
             }
             state = 2;
-
-            IC = 00;
-            for (int i = 0; i < 4; i++) M[CS][i] = '0';
-            Execute();
         }
         else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D')
         {
@@ -1170,19 +1175,34 @@ void OS::LOAD()
                 cout << "[-] Invalid Control Card! (END) : program not initlized" << endl;
                 continue;
             }
-            cout<<endl<< "[+] Exiting Program..." << endl;
-            x=0;
-            state = 0;
+            int curPID = readIntFromWord(M[readIntFromWord(PCB) * 10 + 0]);
+            if (curPID != readIntFromWord(buffer + 4))
+            {
+                cout << "[-] Invalid Exit to PID " << curPID << endl;
+            }
+            else
+            {
+                cout<< "[+] Program " << readIntFromWord(M[readIntFromWord(PCB) * 10 + 0]) << " Loaded" << endl << endl;
+                readyQ.push(readIntFromWord(PCB));
+
+                x=0;
+                state = 0;
+            }
+        }
+        else if (state == 2)
+        {
+            // Data Card
+            continue;
         }
         else
         {
             if (state != 1)
             {
-                cout<<endl<< "[-] Invalid Card! : program not initlized" << endl;
+                cout<< "[-] Invalid Card! : program not initlized" << endl;
                 continue;
             }
 
-            cout<<endl<<"[+] Loading Program card..."<<endl;
+            cout<<"[+] Loading Program card..."<<endl;
             int k = 0;
 
             int address = resolveValidPageFault(CS, true, x % 100);
@@ -1230,6 +1250,7 @@ int main()
     }
       
     os.LOAD();
+    os.flushOutput();
 
     return 0;
 }
