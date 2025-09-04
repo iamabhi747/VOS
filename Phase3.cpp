@@ -77,6 +77,7 @@ class OS {
         int fetchAddress(int segmentR = DS, bool enableSegment = true);
         void freeMemoryFrame(int address);
         void saveCPUstate();
+        void loadCPUstate(int nPCBaddress);
         void contextSwitch(int nPCBaddress);
         
     public:
@@ -458,9 +459,8 @@ void OS::saveCPUstate()
     writeIntToWord(curOutLineIdx, M[PCBaddress * 10 + 5]);
 }
 
-void OS::contextSwitch(int nPCBaddress)
+void OS::loadCPUstate(int nPCBaddress)
 {
-    saveCPUstate();
     writeIntToWord(nPCBaddress, PCB);
 
     int CPUstateaddress = readIntFromWord(M[nPCBaddress * 10 + 8]);
@@ -479,6 +479,13 @@ void OS::contextSwitch(int nPCBaddress)
 
     curInLineIdx  = readIntFromWord(M[nPCBaddress * 10 + 4]);
     curOutLineIdx = readIntFromWord(M[nPCBaddress * 10 + 5]);
+}
+
+
+void OS::contextSwitch(int nPCBaddress)
+{
+    saveCPUstate();
+    loadCPUstate(nPCBaddress);
 }
 
 // MOS
@@ -1250,6 +1257,8 @@ void OS::LOAD()
 // Schedular (round-robin with premption)
 void OS::Schedule(int premption)
 {
+    loadCPUstate(readIntFromWord(PCB));
+    
     int uniqueid = 0;
     while (!readyQ.empty())
     {
